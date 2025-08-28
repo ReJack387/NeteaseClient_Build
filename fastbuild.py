@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 # 配置
-APK_NAME = "Cyan Heart Recode.Apk"  # 底包文件名
+APK_NAME = "Your Client.Apk"  # 底包文件名
 APKSIGNER_PATH = "apksigner.jar"  # 需要提前下载 apksigner.jar
 ZIPALIGN_PATH = "zipalign"  # 需要 Android SDK 中的 zipalign
 KEY_DIR = "keys"  # 密钥文件目录

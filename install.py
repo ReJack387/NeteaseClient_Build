@@ -2,6 +2,25 @@ import os
 import shutil
 import sys
 
+def get_available_clients(data_folder):
+    """
+    获取data文件夹中可用的客户端列表
+    """
+    clients = []
+    if not os.path.exists(data_folder):
+        return clients
+    
+    for item in os.listdir(data_folder):
+        item_path = os.path.join(data_folder, item)
+        if os.path.isdir(item_path):
+            # 检查是否包含resource_packs或behavior_packs文件夹
+            has_resource = os.path.exists(os.path.join(item_path, "resource_packs"))
+            has_behavior = os.path.exists(os.path.join(item_path, "behavior_packs"))
+            if has_resource or has_behavior:
+                clients.append(item)
+    
+    return sorted(clients)
+
 def find_minecraft_packs_folders(client_path):
     """
     在 Minecraft 客户端路径中查找 resource_packs 和 behavior_packs 文件夹
@@ -35,26 +54,32 @@ def find_minecraft_packs_folders(client_path):
     
     return resource_packs_path, behavior_packs_path
 
-def replace_packs_folders(resource_packs_path, behavior_packs_path, data_folder):
+def replace_packs_folders(resource_packs_path, behavior_packs_path, selected_client_folder):
     """
     替换资源包和行为包文件夹
     """
     try:
         # 替换 resource_packs
         if resource_packs_path:
-            print(f"找到 resource_packs 文件夹: {resource_packs_path}")
-            shutil.rmtree(resource_packs_path)
-            src_resource = os.path.join(data_folder, "resource_packs")
-            shutil.copytree(src_resource, resource_packs_path)
-            print("resource_packs 文件夹已替换")
+            src_resource = os.path.join(selected_client_folder, "resource_packs")
+            if os.path.exists(src_resource):
+                print(f"找到 resource_packs 文件夹: {resource_packs_path}")
+                shutil.rmtree(resource_packs_path)
+                shutil.copytree(src_resource, resource_packs_path)
+                print("resource_packs 文件夹已替换")
+            else:
+                print("警告: 选择的客户端中没有 resource_packs 文件夹，跳过替换")
         
         # 替换 behavior_packs
         if behavior_packs_path:
-            print(f"找到 behavior_packs 文件夹: {behavior_packs_path}")
-            shutil.rmtree(behavior_packs_path)
-            src_behavior = os.path.join(data_folder, "behavior_packs")
-            shutil.copytree(src_behavior, behavior_packs_path)
-            print("behavior_packs 文件夹已替换")
+            src_behavior = os.path.join(selected_client_folder, "behavior_packs")
+            if os.path.exists(src_behavior):
+                print(f"找到 behavior_packs 文件夹: {behavior_packs_path}")
+                shutil.rmtree(behavior_packs_path)
+                shutil.copytree(src_behavior, behavior_packs_path)
+                print("behavior_packs 文件夹已替换")
+            else:
+                print("警告: 选择的客户端中没有 behavior_packs 文件夹，跳过替换")
         
         return True
     except Exception as e:
@@ -72,21 +97,49 @@ def main():
         input("按回车键退出...")
         sys.exit(1)
     
-    # 检查 data 文件夹中是否有需要的子文件夹
-    has_resource = os.path.exists(os.path.join(data_folder, "resource_packs"))
-    has_behavior = os.path.exists(os.path.join(data_folder, "behavior_packs"))
+    # 获取可用的客户端列表
+    available_clients = get_available_clients(data_folder)
+    if not available_clients:
+        print("错误: data 文件夹中没有找到任何客户端配置")
+        print("请确保data文件夹中包含子文件夹，且子文件夹中包含resource_packs或behavior_packs文件夹")
+        input("按回车键退出...")
+        sys.exit(1)
+    
+    # 让用户选择客户端
+    print("Minecraft 资源包和行为包替换工具")
+    print("--------------------------------")
+    print("可用的客户端配置:")
+    for i, client in enumerate(available_clients, 1):
+        print(f"{i}. {client}")
+    
+    while True:
+        try:
+            choice = input("\n请选择要使用的客户端配置 (输入数字): ").strip()
+            choice_index = int(choice) - 1
+            
+            if 0 <= choice_index < len(available_clients):
+                selected_client = available_clients[choice_index]
+                selected_client_folder = os.path.join(data_folder, selected_client)
+                break
+            else:
+                print("错误: 选择超出范围，请重新输入")
+        except ValueError:
+            print("错误: 请输入有效的数字")
+    
+    print(f"\n已选择客户端: {selected_client}")
+    print(f"将从以下位置获取新的包文件: {selected_client_folder}")
+    
+    # 检查选择的客户端文件夹中是否有需要的子文件夹
+    has_resource = os.path.exists(os.path.join(selected_client_folder, "resource_packs"))
+    has_behavior = os.path.exists(os.path.join(selected_client_folder, "behavior_packs"))
     
     if not has_resource and not has_behavior:
-        print("错误: data 文件夹中没有找到 resource_packs 或 behavior_packs 文件夹")
+        print("错误: 选择的客户端文件夹中没有找到 resource_packs 或 behavior_packs 文件夹")
         input("按回车键退出...")
         sys.exit(1)
     
     # 获取用户输入的 Minecraft 客户端路径
-    print("Minecraft 资源包和行为包替换工具")
-    print("--------------------------------")
-    print(f"将从以下位置获取新的包文件: {data_folder}")
-    print("")
-    
+    print("\n")
     while True:
         client_path = input("请输入 Minecraft 客户端路径: ").strip()
         
@@ -124,7 +177,7 @@ def main():
     
     # 执行替换
     print("\n开始替换...")
-    success = replace_packs_folders(resource_packs_path, behavior_packs_path, data_folder)
+    success = replace_packs_folders(resource_packs_path, behavior_packs_path, selected_client_folder)
     
     if success:
         print("\n替换完成！")
@@ -134,4 +187,46 @@ def main():
     input("按回车键退出...")
 
 if __name__ == "__main__":
+    print("""                                                                                 
+               ░░░░           ░░                                                 
+                ░░░░░░░░      ░░  ░░░░░░░░░░░░░░░░░                              
+               ░░░░░░░░░░     ░░░░░░ ░░░░░░░░░░░░░░░░░░░                         
+                ░░░░░░░░   ░░░░░░░░░░░░░░░░░░░░░░  ░░░░░░  ░  ░                  
+                ░ ░░░░░  ░░░░░░░░░░ ░░░░░░░░░░░░░░░ ░░░░░░░ ░░                   
+                ░▒ ░░░ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  ░░░░░░░                    
+                ░▒░░  ░░░░░░░░░░  ░░░░░░░░░░░░░░░░░░░ ░░░░░░░░                   
+                 ░░  ░░░░░░░ ░░░ ░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░   ░░░░░░░░░░░░░░ 
+                 ░░░░░░░░░░ ░░  ░░░░░░░░░░░░░░░░░░░░░░  ░░░░░░░░ ░░░░░░░░░░░░░░  
+                  ░░░░░░░░ ░░░ ░░░░░░░░░░░░░░░░░ ░░░░░  ░░░░░░░░░ ░░░░░░░░░░▒░   
+                  ░░░░░░░ ░░░  ░░░░░░░░░░░░░░░░░ ░░░░░  ░░░░░░░░░ ░░░░░░░▒▒▒░    
+                 ░░░░░░░  ░░   ░░░░░░░░░░░░░░░░░ ░░░░░░ ░░░░░░░░░  ░ ░▒▒▒▒░░     
+                ░░░░░░░░ ░░░  ░░░░░░░░░░░░░░░░░░ ░░░░░░ ░░░░░░░░░░░░▒▒▒▒▒░       
+                ░░░░░░░ ░░░░ ▒░░░░░░░░░░░░░░░░░   ░ ░░░ ░░░░░░░░░░░▒▒▒▒░░        
+                ░░░░░░░  ░░ ▒▒░░░░░░░░░░░░░░░░░ ░ ░ ░░░ ░░░░░░░░░░░▒▒░░          
+                ░░░░░░ ░░░░▒▒▒ ░░░░░░░░░░░░░░░ ░░ ░░░░░ ░░░░░░░░░░░▒░            
+                ░░░░░░ ▒░░░▒▓▒░░░░░░░░░░░░░░░░░▒▒░░░░░░ ░░░░░░░░░   ░░░░         
+                ░░░░░░▒▒░░░▓▓▓▒░░░░░░░░░░░░░░░░▓▒░░░░░░ ░░░░░░░░░   ░░░          
+                ░░░░░░▓▓░░▓▓▓▓▓░░░░░░░░░░░░░░▒▓▓▓▒░░░░░░░░░░░░░░░                
+                ░░░░░░░░░▒▓▓▓▓▓▓░▒░░░░░░░░░░▒▓▓▓▓▒░░░░░░░░░░░░░░░   ░░░    ▒▒░▒░ 
+               ░░▒░░░░▓▓▒   ▓▓▓▓▓▒▒░░░░░░▒░▒▓▓▓▓▓▓░▒░░░░░░░░░░░░    ░░░   ░▓▓▓▓▒░
+                ▒▓░░░░▓▓▓▓▓▒ ▓▓▓▓▓▓▓▒░░▓▓▒▓▒░░░░       ░░░░░░░░░ ░ ░░░░   ░░▒▓▓░ 
+                ▓▓░░▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒░░░░░▒▓▒▒░░░░░░░░░ ░░ ░░░░       ░  
+             ▒▓▓▓▓▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░▒▓░░░░░░░░░  ░░ ░░░░          
+          ░░░▒▓▓▓▓▒▓▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▓▓░░░░░░░░░  ░░░ ░░░░          
+         ░░░░░░░░░▒  ░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒░░░░░░░░   ░░░  ░░░          
+       ░░░░░░░░░░░░ ░░ ░▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒░░░▓░░░    ░░░  ░░           
+      ░░░░░░░░░░░░░░░░  ░░░▒▓▓▓▓▓▓▓▓▓▒▒▓▓▓▓▓▓▓▓▒▒▒▓▓░░▓▒░░     ░░░   ░░          
+     ░░░░░░░░░░░░░░░ ░  ░░░░░░░▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒░░▓▓▓▓▓░      ░░░   ░░          
+     ░░░░░░░░░░░░░░░░░░ ░░░░░░░▒▒▒▒▒▒▒▓▒░░░░░░░░░░ ▒▓▓▓▓▓▒     ░░░    ░          
+     ░░░░░░░░░░░░░░ ░░░  ░░░░░░▒▒▒▒▒▒▒░░░░░░░░░░░░ ░░░░░░░░░   ░░░░   ░░         
+    ░░░░░░░░░░░░░░░░ ░░ ░░ ░░░░▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░    ░░░   ░░         
+   ░░░░░░░░░░░░░░░░░ ░░ ░░░  ░░ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   ░░░             
+   ░░░░░░░░░░░░░░ ░░  ░ ░░░░░░ ░░░░░░░░░░░░░░░░░  ░░░░░░░░░░░░░   ░░░            
+   ░░░░░░░░░░░░░░░░░░  ░░░░░░░░░░░░░ ░░░░░ ░░░░░░ ░░░░░░░░░░░░░    ░░░           
+   ░░░░░░░░░░░░░░░░░  ░░░░░░░░░░░░░░░░░░░░░░░ ░░░ ░░░░░░░░░░░░░     ░░           
+     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ ░░░░ ░░░░░░░░░░░░░      ░░          
+       ░░░░░░░ ░░░░░░░░░ ░░░░░░░░░░░░░░░░░  ░░░░░░░░░░░░░░░░░░        ░          
+               ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                   
+               ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                   
+""")
     main()
